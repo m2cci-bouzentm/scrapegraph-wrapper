@@ -58,7 +58,7 @@ def get_graph_config(max_results: Optional[int] = None) -> dict:
     config = {
         "llm": {
             "api_key": os.getenv("GOOGLE_API_KEY"),
-            "model": os.getenv("LLM_MODEL", "google_genai/gemini-2.0-flash"),
+            "model": os.getenv("LLM_MODEL", "google_genai/gemini-3.1-flash-lite-preview"),
         },
         "verbose": False,
         "headless": True,
