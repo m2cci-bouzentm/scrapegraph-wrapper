@@ -54,11 +54,15 @@ MONITOR_DIR = Path(os.getenv("MONITOR_DIR", "/data/monitors"))
 MONITOR_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def get_graph_config(max_results: Optional[int] = None) -> dict:
+VISION_MODEL = "google_genai/gemini-3-pro-preview"
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "google_genai/gemini-3.1-flash-lite-preview")
+
+
+def get_graph_config(max_results: Optional[int] = None, vision: bool = False) -> dict:
     config = {
         "llm": {
             "api_key": os.getenv("GOOGLE_API_KEY"),
-            "model": os.getenv("LLM_MODEL", "google_genai/gemini-3.1-flash-lite-preview"),
+            "model": VISION_MODEL if vision else DEFAULT_MODEL,
         },
         "verbose": False,
         "headless": True,
@@ -171,7 +175,7 @@ async def search_link(req: SearchLinkRequest):
 
 @app.post("/omni-search")
 async def omni_search(req: SearchRequest):
-    graph = OmniSearchGraph(prompt=req.prompt, config=get_graph_config(max_results=req.max_results))
+    graph = OmniSearchGraph(prompt=req.prompt, config=get_graph_config(max_results=req.max_results, vision=True))
     return await run_graph(graph)
 
 
@@ -179,11 +183,11 @@ async def omni_search(req: SearchRequest):
 
 class DocumentRequest(BaseModel):
     prompt: str
-    source: str
+    source: str  # file path or raw content
 
 class DocumentMultiRequest(BaseModel):
     prompt: str
-    sources: List[str]
+    sources: List[str]  # file paths or raw content
 
 
 @app.post("/document-scraper")
@@ -244,7 +248,7 @@ async def omni_scraper(req: ExtractRequest):
 
 @app.post("/screenshot-scraper")
 async def screenshot_scraper(req: ExtractRequest):
-    graph = ScreenshotScraperGraph(prompt=req.prompt, source=req.url, config=get_graph_config())
+    graph = ScreenshotScraperGraph(prompt=req.prompt, source=req.url, config=get_graph_config(vision=True))
     return await run_graph(graph)
 
 
@@ -267,21 +271,30 @@ class ScriptMultiRequest(BaseModel):
     prompt: str
 
 
+class CodeGenSchema(BaseModel):
+    code: str
+    description: str
+
+
 @app.post("/script-creator")
 async def script_creator(req: ScriptRequest):
-    graph = ScriptCreatorGraph(prompt=req.prompt, source=req.url, config=get_graph_config())
+    config = get_graph_config()
+    config["library"] = "beautifulsoup"
+    graph = ScriptCreatorGraph(prompt=req.prompt, source=req.url, config=config)
     return await run_graph(graph)
 
 
 @app.post("/script-creator-multi")
 async def script_creator_multi(req: ScriptMultiRequest):
-    graph = ScriptCreatorMultiGraph(prompt=req.prompt, source=req.urls, config=get_graph_config())
+    config = get_graph_config()
+    config["library"] = "beautifulsoup"
+    graph = ScriptCreatorMultiGraph(prompt=req.prompt, source=req.urls, config=config)
     return await run_graph(graph)
 
 
 @app.post("/code-generator")
 async def code_generator(req: ScriptRequest):
-    graph = CodeGeneratorGraph(prompt=req.prompt, source=req.url, config=get_graph_config())
+    graph = CodeGeneratorGraph(prompt=req.prompt, source=req.url, config=get_graph_config(), schema=CodeGenSchema)
     return await run_graph(graph)
 
 
