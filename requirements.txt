@@ -1,0 +1,6 @@
+scrapegraphai @ git+https://github.com/ScrapeGraphAI/Scrapegraph-ai.git
+fastapi[standard]>=0.115.0
+uvicorn>=0.34.0
+python-dotenv>=1.0.0
+langchain-google-genai>=3.0.0,<4.0.0
+ddgs>=9.0.0

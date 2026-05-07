@@ -1,0 +1,14 @@
+services:
+  scrapegraphai:
+    build: .
+    container_name: scrapegraphai-api
+    ports:
+      - "8091:8091"
+    env_file:
+      - .env
+    volumes:
+      - monitors_data:/data/monitors
+    restart: unless-stopped
+
+volumes:
+  monitors_data:
