@@ -1,6 +1,9 @@
-scrapegraphai @ git+https://github.com/ScrapeGraphAI/Scrapegraph-ai.git
+scrapegraphai==2.1.1
 fastapi[standard]>=0.115.0
 uvicorn>=0.34.0
 python-dotenv>=1.0.0
 langchain-google-genai>=3.0.0,<4.0.0
+langchain-ollama>=1.0.0
+fastembed>=0.6.0
+qdrant-client>=1.12.0
 ddgs>=9.0.0

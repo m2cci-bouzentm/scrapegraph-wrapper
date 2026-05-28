@@ -21,6 +21,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
+from scrapegraphai.nodes import FetchNode, MarkdownifyNode
 from scrapegraphai.graphs import (
     SmartScraperGraph,
     SmartScraperLiteGraph,
@@ -92,6 +93,30 @@ async def run_graph(graph):
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(_executor, graph.run)
         return {"success": True, "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Markdownify (no LLM) ────────────────────────────────────────
+
+class MarkdownifyRequest(BaseModel):
+    url: str
+
+def _run_markdownify(url: str) -> str:
+    from scrapegraphai.utils.convert_to_md import convert_to_md
+    from scrapegraphai.docloaders import ChromiumLoader
+    loader = ChromiumLoader([url], headless=True)
+    docs = loader.load()
+    if not docs or not docs[0].page_content.strip():
+        return ""
+    return convert_to_md(docs[0].page_content)
+
+@app.post("/markdownify")
+async def markdownify(req: MarkdownifyRequest):
+    try:
+        loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(_executor, _run_markdownify, req.url)
+        return {"success": True, "data": {"content": content}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -254,9 +279,21 @@ async def screenshot_scraper(req: ExtractRequest):
 
 # ── Deep Crawl ───────────────────────────────────────────────────
 
+class DepthSearchRequest(BaseModel):
+    url: str
+    prompt: str
+    depth: Optional[int] = 1
+
 @app.post("/depth-search")
-async def depth_search(req: ExtractRequest):
-    graph = DepthSearchGraph(prompt=req.prompt, source=req.url, config=get_graph_config())
+async def depth_search(req: DepthSearchRequest):
+    config = get_graph_config()
+    config["depth"] = min(req.depth, 3)
+    config["only_inside_links"] = True
+    config["embedder_model"] = {
+        "api_key": os.getenv("GOOGLE_API_KEY"),
+        "model": "google_genai/models/embedding-001",
+    }
+    graph = DepthSearchGraph(prompt=req.prompt, source=req.url, config=config)
     return await run_graph(graph)
 
 
