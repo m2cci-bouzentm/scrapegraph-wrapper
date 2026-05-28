@@ -15,6 +15,12 @@ from typing import List, Optional
 from dotenv import load_dotenv
 load_dotenv()
 
+# Patch: ChatOllama moved from langchain_community to langchain_ollama
+import langchain_community.chat_models as _cm
+if not hasattr(_cm, "ChatOllama"):
+    from langchain_ollama import ChatOllama
+    _cm.ChatOllama = ChatOllama
+
 _executor = ThreadPoolExecutor(max_workers=4)
 
 from fastapi import FastAPI, Request, HTTPException
