@@ -21,7 +21,8 @@ if not hasattr(_cm, "ChatOllama"):
     from langchain_ollama import ChatOllama
     _cm.ChatOllama = ChatOllama
 
-_executor = ThreadPoolExecutor(max_workers=4)
+_executor = ThreadPoolExecutor(max_workers=2)
+_browser_semaphore = asyncio.Semaphore(2)
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
@@ -95,12 +96,13 @@ async def health():
 
 
 async def run_graph(graph):
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_executor, graph.run)
-        return {"success": True, "data": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    async with _browser_semaphore:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(_executor, graph.run)
+            return {"success": True, "data": result}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Markdownify (no LLM) ────────────────────────────────────────
@@ -119,12 +121,13 @@ def _run_markdownify(url: str) -> str:
 
 @app.post("/markdownify")
 async def markdownify(req: MarkdownifyRequest):
-    try:
-        loop = asyncio.get_event_loop()
-        content = await loop.run_in_executor(_executor, _run_markdownify, req.url)
-        return {"success": True, "data": {"content": content}}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    async with _browser_semaphore:
+        try:
+            loop = asyncio.get_event_loop()
+            content = await loop.run_in_executor(_executor, _run_markdownify, req.url)
+            return {"success": True, "data": {"content": content}}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Core Scrapers ────────────────────────────────────────────────
@@ -379,11 +382,12 @@ def diff_results(old, new):
 @app.post("/monitor")
 async def monitor(req: MonitorRequest):
     graph = SmartScraperGraph(prompt=req.prompt, source=req.url, config=get_graph_config())
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_executor, graph.run)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    async with _browser_semaphore:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(_executor, graph.run)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     domain = req.url.replace("https://", "").replace("http://", "").split("/")[0].replace(".", "_")
     domain_dir = MONITOR_DIR / domain
