@@ -2,6 +2,7 @@ services:
   scrapegraphai:
     build: .
     container_name: scrapegraphai-api
+    init: true
     ports:
       - "8091:8091"
     env_file:
